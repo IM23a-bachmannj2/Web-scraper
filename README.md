@@ -1,2 +1,2 @@
 # Web-scraper
-A Webs craper
+A Web craper
