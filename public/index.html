@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="style.css">
+    <title>Explain This Website</title>
+</head>
+
+<body>
+    <header>
+        <div class="brand">
+            <h1>Explain This Website</h1>
+        </div>
+    </header>
+
+    <main>
+        <section class="card">
+            <form id="w-form">
+                <label class="form-label" for="website">Website URL</label>
+                <input type="text" id="website" name="website-analyser" placeholder="https://example.com" />
+
+                <p id="error" class="error" aria-live="polite"></p>
+
+                <button type="submit">Submit</button>
+            </form>
+        </section>
+
+    </main>
+
+    <footer>
+        <span>A very cool website</span>
+    </footer>
+</body>
+<script type="module" src="../dist/index.js"></script>
+
+</html>
