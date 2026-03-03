@@ -1,6 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
 const form = document.getElementById("w-form");
 const input = document.getElementById("website");
 const error = document.getElementById("error");
+// --------------------------------------------------------------------
+// Frontend validation
 if (!form || !input || !error) {
     throw new Error("Required DOM elements not found");
 }
@@ -37,5 +41,4 @@ function clearError() {
     error.style.display = "none";
     input.classList.remove("is-invalid");
 }
-export {};
 //# sourceMappingURL=index.js.map

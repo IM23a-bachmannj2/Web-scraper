@@ -2,6 +2,9 @@ const form = document.getElementById("w-form") as HTMLFormElement | null;
 const input = document.getElementById("website") as HTMLInputElement | null;
 const error = document.getElementById("error") as HTMLParagraphElement | null;
 
+// --------------------------------------------------------------------
+// Frontend validation
+
 if (!form || !input || !error) {
     throw new Error("Required DOM elements not found");
 }
@@ -46,3 +49,4 @@ function clearError(): void {
     error!.style.display = "none";
     input!.classList.remove("is-invalid");
 }
+
