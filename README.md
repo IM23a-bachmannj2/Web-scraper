@@ -1,3 +1,5 @@
+[![Build Frontend](https://github.com/<USERNAME>/<REPO>/actions/workflows/frontend_job.yml/badge.svg)](https://github.com/IM23a-bachmannj2/Web-scraper/actions/workflows/frontend_job.yml)
+
 # Web-scraper
 
 Kleines Web-Scraper-Projekt mit Express.js + TypeScript.
