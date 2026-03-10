@@ -1,11 +1,15 @@
 {
-	"dependencies": {
-		"@types/express": "^5.0.6",
-		"express": "^5.2.1",
-		"node": "^25.5.0",
-		"typescript": "^5.9.3"
-	},
-	"devDependencies": {
-		"@types/node": "^25.3.0"
-	}
+  "dependencies": {
+    "@types/express": "^5.0.6",
+    "express": "^5.2.1",
+    "node": "^25.5.0",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/src/backend.js"
+  }
 }

@@ -1,17 +1,128 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-// ---------------------------------------------------
-// API
-const express = require('express');
-const app = express();
-const port = 3000;
-app.use(express.static(__dirname + "/../public"));
-app.get("/", (req, res) => {
-    res.sendFile(process.cwd() + "/public/index.html");
+const express_1 = __importDefault(require("express"));
+const node_path_1 = __importDefault(require("node:path"));
+const app = (0, express_1.default)();
+const port = Number(process.env.PORT ?? 3000);
+const publicDir = node_path_1.default.resolve(process.cwd(), "public");
+app.use(express_1.default.json());
+app.use(express_1.default.static(publicDir));
+app.get("/", (_req, res) => {
+    res.sendFile(node_path_1.default.join(publicDir, "index.html"));
+});
+app.post("/api/analyze", async (req, res) => {
+    const { url } = req.body;
+    if (!url || !isValidHttpUrl(url)) {
+        res.status(400).json({ error: "Bitte eine gültige http/https URL senden." });
+        return;
+    }
+    try {
+        const response = await fetch(url, {
+            redirect: "follow",
+            headers: { "User-Agent": "Mozilla/5.0 (compatible; WebScraperBot/1.0)" },
+        });
+        if (!response.ok) {
+            res.status(400).json({ error: `Webseite nicht erreichbar (Status ${response.status}).` });
+            return;
+        }
+        const html = await response.text();
+        const topHeadings = extractTags(html, "h1|h2|h3", 8);
+        const analysis = {
+            url,
+            finalUrl: response.url,
+            statusCode: response.status,
+            title: extractFirstTag(html, "title"),
+            metaDescription: extractMetaDescription(html),
+            language: extractHtmlLanguage(html),
+            headingCount: countTags(html, "h1|h2|h3|h4|h5|h6"),
+            topHeadings,
+            paragraphCount: countTags(html, "p"),
+            linkCount: countTags(html, "a"),
+            imageCount: countTags(html, "img"),
+            textSample: extractTextSample(html, 220),
+        };
+        res.json(analysis);
+    }
+    catch {
+        res.status(500).json({ error: "Analyse fehlgeschlagen. Bitte URL prüfen und erneut versuchen." });
+    }
 });
 app.listen(port, () => {
-    console.log(`listening on port ${port}`);
+    console.log(`Server läuft auf http://localhost:${port}`);
 });
-// ---------------------------------------------------
-// Scraper Codes
+function isValidHttpUrl(value) {
+    try {
+        const parsed = new URL(value);
+        return parsed.protocol === "http:" || parsed.protocol === "https:";
+    }
+    catch {
+        return false;
+    }
+}
+function decodeHtmlEntities(input) {
+    return input
+        .replaceAll(/&nbsp;/g, " ")
+        .replaceAll(/&amp;/g, "&")
+        .replaceAll(/&quot;/g, '"')
+        .replaceAll(/&#39;/g, "'")
+        .replaceAll(/&lt;/g, "<")
+        .replaceAll(/&gt;/g, ">");
+}
+function stripTags(input) {
+    return decodeHtmlEntities(input.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim());
+}
+function extractFirstTag(html, tagName) {
+    const regex = new RegExp(`<(${tagName})[^>]*>([\\s\\S]*?)<\\/\\1>`, "i");
+    const match = html.match(regex);
+    if (!match?.[2]) {
+        return null;
+    }
+    return stripTags(match[2]) || null;
+}
+function extractTags(html, tagPattern, maxItems) {
+    const regex = new RegExp(`<(${tagPattern})[^>]*>([\\s\\S]*?)<\\/\\1>`, "gi");
+    const items = [];
+    for (const match of html.matchAll(regex)) {
+        if (items.length >= maxItems) {
+            break;
+        }
+        const raw = match[2];
+        if (!raw) {
+            continue;
+        }
+        const value = stripTags(raw);
+        if (value) {
+            items.push(value);
+        }
+    }
+    return items;
+}
+function countTags(html, tagPattern) {
+    const regex = new RegExp(`<(${tagPattern})(\\s|>)`, "gi");
+    return [...html.matchAll(regex)].length;
+}
+function extractMetaDescription(html) {
+    const regex = /<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["'][^>]*>/i;
+    const reverseRegex = /<meta[^>]*content=["']([^"']*)["'][^>]*name=["']description["'][^>]*>/i;
+    const match = html.match(regex) ?? html.match(reverseRegex);
+    if (!match?.[1]) {
+        return null;
+    }
+    return decodeHtmlEntities(match[1].trim()) || null;
+}
+function extractHtmlLanguage(html) {
+    const match = html.match(/<html[^>]*lang=["']([^"']+)["'][^>]*>/i);
+    if (!match?.[1]) {
+        return null;
+    }
+    return match[1].trim();
+}
+function extractTextSample(html, maxLength) {
+    const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    const baseText = stripTags(bodyMatch?.[1] ?? html);
+    return baseText.slice(0, maxLength);
+}
 //# sourceMappingURL=backend.js.map

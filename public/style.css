@@ -148,3 +148,18 @@ footer span {
     border-color: rgba(255, 107, 107, 0.7);
     box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.16);
 }
+.results {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+
+.results h2,
+.results h3 {
+    margin: 10px 0;
+}
+
+.results p,
+.results li {
+    color: var(--muted);
+}
