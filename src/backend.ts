@@ -86,7 +86,7 @@ app.listen(port, () => {
   console.log(`Server läuft auf http://localhost:${port}`);
 });
 
-function isValidHttpUrl(value: string): boolean {
+export function isValidHttpUrl(value: string): boolean {
   try {
     const parsed = new URL(value);
     return parsed.protocol === "http:" || parsed.protocol === "https:";
@@ -168,7 +168,7 @@ function extractTextSample(html: string, maxLength: number): string {
   return baseText.slice(0, maxLength);
 }
 
-function extractLinks(html: string, baseUrl: string): string[] {
+export function extractLinks(html: string, baseUrl: string): string[] {
   const regex = /<a[^>]*href=["']([^"']+)["'][^>]*>/gi;
   const links: string[] = [];
 
