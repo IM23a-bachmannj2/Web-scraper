@@ -62,6 +62,7 @@ function renderResults(data) {
     <p><strong>Sprache:</strong> ${escapeHtml(data.language ?? "-")}</p>
     <p><strong>Absätze:</strong> ${data.paragraphCount}</p>
     <p><strong>Links:</strong> ${data.linkCount}</p>
+    <p><strong>Links:</strong> ${data.links}</p>
     <p><strong>Bilder:</strong> ${data.imageCount}</p>
     <p><strong>Überschriften insgesamt:</strong> ${data.headingCount}</p>
     <h3>Erkannte Überschriften</h3>

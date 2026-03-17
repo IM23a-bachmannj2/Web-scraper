@@ -23,6 +23,7 @@ interface WebsiteAnalysis {
   topHeadings: string[];
   paragraphCount: number;
   linkCount: number;
+  links: string[];
   imageCount: number;
   textSample: string;
 }
@@ -69,6 +70,7 @@ app.post(
         topHeadings,
         paragraphCount: countTags(html, "p"),
         linkCount: countTags(html, "a"),
+        links: extractLinks(html, response.url),
         imageCount: countTags(html, "img"),
         textSample: extractTextSample(html, 220),
       };
@@ -146,7 +148,7 @@ function extractMetaDescription(html: string): string | null {
   const regex = /<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["'][^>]*>/i;
   const reverseRegex = /<meta[^>]*content=["']([^"']*)["'][^>]*name=["']description["'][^>]*>/i;
   const match = html.match(regex) ?? html.match(reverseRegex);
-if (!match?.[1]) {
+  if (!match?.[1]) {
     return null;
   }
   return decodeHtmlEntities(match[1].trim()) || null;
@@ -154,7 +156,7 @@ if (!match?.[1]) {
 
 function extractHtmlLanguage(html: string): string | null {
   const match = html.match(/<html[^>]*lang=["']([^"']+)["'][^>]*>/i);
-if (!match?.[1]) {
+  if (!match?.[1]) {
     return null;
   }
   return match[1].trim();
@@ -165,3 +167,26 @@ function extractTextSample(html: string, maxLength: number): string {
   const baseText = stripTags(bodyMatch?.[1] ?? html);
   return baseText.slice(0, maxLength);
 }
+
+function extractLinks(html: string, baseUrl: string): string[] {
+  const regex = /<a[^>]*href=["']([^"']+)["'][^>]*>/gi;
+  const links: string[] = [];
+
+  for (const match of html.matchAll(regex)) {
+    const href = match[1];
+
+    if (!href) continue;
+
+    try {
+      // Convert relative → absolute URL
+      const absoluteUrl = new URL(href, baseUrl).href;
+      links.push(absoluteUrl);
+    } catch {
+      // ignore invalid URLs (mailto:, javascript:, etc.)
+    }
+  }
+
+  // remove duplicates
+  return [...new Set(links)];
+}
+

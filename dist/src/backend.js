@@ -41,6 +41,7 @@ app.post("/api/analyze", async (req, res) => {
             topHeadings,
             paragraphCount: countTags(html, "p"),
             linkCount: countTags(html, "a"),
+            links: extractLinks(html, response.url),
             imageCount: countTags(html, "img"),
             textSample: extractTextSample(html, 220),
         };
@@ -124,5 +125,24 @@ function extractTextSample(html, maxLength) {
     const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
     const baseText = stripTags(bodyMatch?.[1] ?? html);
     return baseText.slice(0, maxLength);
+}
+function extractLinks(html, baseUrl) {
+    const regex = /<a[^>]*href=["']([^"']+)["'][^>]*>/gi;
+    const links = [];
+    for (const match of html.matchAll(regex)) {
+        const href = match[1];
+        if (!href)
+            continue;
+        try {
+            // Convert relative → absolute URL
+            const absoluteUrl = new URL(href, baseUrl).href;
+            links.push(absoluteUrl);
+        }
+        catch {
+            // ignore invalid URLs (mailto:, javascript:, etc.)
+        }
+    }
+    // remove duplicates
+    return [...new Set(links)];
 }
 //# sourceMappingURL=backend.js.map
