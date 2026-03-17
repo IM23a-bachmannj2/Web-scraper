@@ -3,9 +3,15 @@
     "rootDir": ".",
     "outDir": "dist",
     "target": "ES2021",
-    "lib": ["ES2021", "DOM"],
+    "lib": [
+      "ES2021",
+      "DOM"
+    ],
     "module": "commonjs",
-    "types": ["node"],
+    "types": [
+      "node",
+      "jest"
+    ],
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
@@ -19,5 +25,7 @@
     "moduleDetection": "force",
     "skipLibCheck": true
   },
-  "include": ["src"]
+  "include": [
+    "src"
+  ]
 }
