@@ -1,12 +1,12 @@
-name: Build frontend
+name: Build backend
 
 on:
-  workflow_call:
   workflow_dispatch:
+  workflow_call:
 
 jobs:
-  job_build_frontend:
-    name: Build frontend code
+  job_build_backend:
+    name: Build backend code
     runs-on: ubuntu-latest
 
     steps:
@@ -24,11 +24,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Run Formatter check
-        run: pnpm run format-check
+      - name: TypeScript build
+        run: pnpm run build
 
-      - name: Run Linter check
-        run: pnpm run lint-check
-
-      - name: Run tests
-        run: pnpm exec jest tests/frontend.test.ts
+      - name: Run backend tests
+        run: pnpm exec jest tests/backend.test.ts

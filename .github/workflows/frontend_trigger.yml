@@ -1,0 +1,17 @@
+
+name: Trigger frontend build
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'src/index.ts'
+      - '.github/workflows/frontend_job.yml'
+  pull_request:
+    paths:
+      - 'src/index.ts'
+      - '.github/workflows/frontend_job.yml'
+
+jobs:
+  job_build_frontend:
+    uses: ./.github/workflows/frontend_job.yml

@@ -1,0 +1,17 @@
+
+name: Trigger backend build
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'src/backend.ts'
+      - '.github/workflows/backend_job.yml'
+  pull_request:
+    paths:
+      - 'backend/backend.ts'
+      - '.github/workflows/backend_job.yml'
+
+jobs:
+  job_build_backend:
+    uses: ./.github/workflows/backend_job.yml
