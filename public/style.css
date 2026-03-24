@@ -163,3 +163,84 @@ footer span {
 .results li {
     color: var(--muted);
 }
+
+.analysis-layout {
+    display: grid;
+    gap: 12px;
+}
+
+.data-grid {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.data-grid p {
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.02);
+    display: grid;
+    gap: 6px;
+}
+
+.data-grid strong {
+    color: var(--muted);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.data-grid span {
+    overflow-wrap: anywhere;
+}
+
+.scroll-panel {
+    max-height: 180px;
+    overflow: auto;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.result-list,
+.link-list {
+    margin: 0;
+    padding-left: 20px;
+    display: grid;
+    gap: 6px;
+}
+
+.link-details {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.link-details summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.link-details[open] summary {
+    margin-bottom: 8px;
+}
+
+.link-list a {
+    color: var(--accent);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+
+.link-list a:hover {
+    text-decoration: underline;
+}
+
+.muted {
+    color: var(--muted);
+    margin: 0;
+}

@@ -10,6 +10,7 @@ interface WebsiteAnalysis {
   paragraphCount: number;
   linkCount: number;
   imageCount: number;
+  links: string[];
   textSample: string;
 }
 
@@ -65,24 +66,51 @@ form.addEventListener("submit", async (event: SubmitEvent) => {
 function renderResults(data: WebsiteAnalysis): void {
   const headings =
     data.topHeadings.length > 0
-      ? `<ul>${data.topHeadings.map((heading) => `<li>${escapeHtml(heading)}</li>`).join("")}</ul>`
-      : "<p>Keine Überschriften gefunden.</p>";
+      ? `<ul class="result-list">${data.topHeadings.map((heading) => `<li>${escapeHtml(heading)}</li>`).join("")}</ul>`
+      : '<p class="muted">Keine Überschriften gefunden.</p>';
+
+  const links =
+    data.links.length > 0
+      ? `<ul class="link-list">${data.links
+          .map(
+            (link) =>
+              `<li><a href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(link)}</a></li>`
+          )
+          .join("")}</ul>`
+      : '<p class="muted">Keine Links gefunden.</p>';
 
   results!.innerHTML = `
-    <h2>Basisdaten</h2>
-    <p><strong>Status:</strong> ${data.statusCode}</p>
-    <p><strong>URL:</strong> ${escapeHtml(data.finalUrl)}</p>
-    <p><strong>Title:</strong> ${escapeHtml(data.title ?? "-")}</p>
-    <p><strong>Meta Description:</strong> ${escapeHtml(data.metaDescription ?? "-")}</p>
-    <p><strong>Sprache:</strong> ${escapeHtml(data.language ?? "-")}</p>
-    <p><strong>Absätze:</strong> ${data.paragraphCount}</p>
-    <p><strong>Links:</strong> ${data.linkCount}</p>
-    <p><strong>Bilder:</strong> ${data.imageCount}</p>
-    <p><strong>Überschriften insgesamt:</strong> ${data.headingCount}</p>
-    <h3>Erkannte Überschriften</h3>
-    ${headings}
-    <h3>Textauszug</h3>
-    <p>${escapeHtml(data.textSample || "-")}</p>
+    <section class="analysis-layout">
+      <h2>Basisdaten</h2>
+      <div class="data-grid">
+        <p><strong>Status</strong><span>${data.statusCode}</span></p>
+        <p><strong>URL</strong><span>${escapeHtml(data.finalUrl)}</span></p>
+        <p><strong>Title</strong><span>${escapeHtml(data.title ?? "-")}</span></p>
+        <p><strong>Meta Description</strong><span>${escapeHtml(data.metaDescription ?? "-")}</span></p>
+        <p><strong>Sprache</strong><span>${escapeHtml(data.language ?? "-")}</span></p>
+        <p><strong>Absätze</strong><span>${data.paragraphCount}</span></p>
+        <p><strong>Links</strong><span>${data.linkCount}</span></p>
+        <p><strong>Bilder</strong><span>${data.imageCount}</span></p>
+        <p><strong>Überschriften insgesamt</strong><span>${data.headingCount}</span></p>
+      </div>
+
+      <h3>Erkannte Überschriften</h3>
+      <div class="scroll-panel">
+        ${headings}
+      </div>
+
+      <details class="link-details">
+        <summary>Gefundene Links (${data.links.length})</summary>
+        <div class="scroll-panel">
+          ${links}
+        </div>
+      </details>
+
+      <h3>Textauszug</h3>
+      <div class="scroll-panel">
+        <p>${escapeHtml(data.textSample || "-")}</p>
+      </div>
+    </section>
   `;
 }
 
