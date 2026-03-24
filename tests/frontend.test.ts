@@ -25,6 +25,7 @@ describe("Frontend Form Test", () => {
                         language: "en",
                         paragraphCount: 3,
                         linkCount: 5,
+                        links: ["https://example.com/about", "https://example.com/contact"],
                         imageCount: 1,
                         headingCount: 2,
                         topHeadings: ["Hello"],
