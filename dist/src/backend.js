@@ -3,19 +3,21 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.app = void 0;
+exports.startServer = startServer;
 exports.isValidHttpUrl = isValidHttpUrl;
 exports.extractLinks = extractLinks;
 const express_1 = __importDefault(require("express"));
 const node_path_1 = __importDefault(require("node:path"));
-const app = (0, express_1.default)();
+exports.app = (0, express_1.default)();
 const port = Number(process.env.PORT ?? 3000);
 const publicDir = node_path_1.default.resolve(process.cwd(), "public");
-app.use(express_1.default.json());
-app.use(express_1.default.static(publicDir));
-app.get("/", (_req, res) => {
+exports.app.use(express_1.default.json());
+exports.app.use(express_1.default.static(publicDir));
+exports.app.get("/", (_req, res) => {
     res.sendFile(node_path_1.default.join(publicDir, "index.html"));
 });
-app.post("/api/analyze", async (req, res) => {
+exports.app.post("/api/analyze", async (req, res) => {
     const { url } = req.body;
     if (!url || !isValidHttpUrl(url)) {
         res.status(400).json({ error: "Bitte eine gültige http/https URL senden." });
@@ -53,9 +55,14 @@ app.post("/api/analyze", async (req, res) => {
         res.status(500).json({ error: "Analyse fehlgeschlagen. Bitte URL prüfen und erneut versuchen." });
     }
 });
-app.listen(port, () => {
-    console.log(`Server läuft auf http://localhost:${port}`);
-});
+function startServer() {
+    return exports.app.listen(port, () => {
+        console.log(`Server läuft auf http://localhost:${port}`);
+    });
+}
+if (require.main === module) {
+    startServer();
+}
 function isValidHttpUrl(value) {
     try {
         const parsed = new URL(value);

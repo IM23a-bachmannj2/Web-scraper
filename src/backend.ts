@@ -1,7 +1,7 @@
-import express, { type Request, type Response } from "express";
+import express, { type Express, type Request, type Response } from "express";
 import path from "node:path";
 
-const app = express();
+export const app: Express = express();
 const port = Number(process.env.PORT ?? 3000);
 const publicDir = path.resolve(process.cwd(), "public");
 
@@ -82,9 +82,15 @@ app.post(
   }
 );
 
-app.listen(port, () => {
-  console.log(`Server läuft auf http://localhost:${port}`);
-});
+export function startServer() {
+  return app.listen(port, () => {
+    console.log(`Server läuft auf http://localhost:${port}`);
+  });
+}
+
+if (require.main === module) {
+  startServer();
+}
 
 export function isValidHttpUrl(value: string): boolean {
   try {
