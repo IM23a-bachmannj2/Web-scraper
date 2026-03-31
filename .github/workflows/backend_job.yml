@@ -28,4 +28,4 @@ jobs:
         run: pnpm run build
 
       - name: Run backend tests
-        run: pnpm exec jest tests/backend.test.ts
+        run: pnpm exec jest tests/backend.test.ts tests/backend.integration.test.ts
