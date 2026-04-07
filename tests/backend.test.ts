@@ -22,13 +22,15 @@ describe("Backend Unit Tests", () => {
     // -------------------------
     // TEST 2: extractLinks
     // -------------------------
-    it("should extract links from HTML", () => {
+    it("should extract http links from HTML and normalize duplicates", () => {
         // Arrange
         const html = `
       <html>
         <body>
           <a href="https://example.com/page1">Link 1</a>
-          <a href="/page2">Link 2</a>
+          <a href="/page2#top">Link 2</a>
+          <a href="/page2#bottom">Link 3</a>
+          <a href="mailto:test@example.com">Mail</a>
         </body>
       </html>
     `;
@@ -44,5 +46,6 @@ describe("Backend Unit Tests", () => {
 
         expect(result).toContain("https://example.com/page1");
         expect(result).toContain("https://example.com/page2");
+        expect(result).not.toContain("mailto:test@example.com");
     });
 });

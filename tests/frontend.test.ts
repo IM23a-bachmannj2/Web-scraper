@@ -25,11 +25,29 @@ describe("Frontend Form Test", () => {
                         language: "en",
                         paragraphCount: 3,
                         linkCount: 5,
-                        links: ["https://example.com/about", "https://example.com/contact"],
+                        links: ["https://example.com/about", "https://external.example/contact"],
                         imageCount: 1,
                         headingCount: 2,
                         topHeadings: ["Hello"],
                         textSample: "Sample text",
+                        linkedPages: [
+                            {
+                                url: "https://example.com/about",
+                                finalUrl: "https://example.com/about",
+                                statusCode: 200,
+                                title: "About Example",
+                                metaDescription: "About page",
+                                language: "en",
+                                paragraphCount: 1,
+                                linkCount: 0,
+                                imageCount: 0,
+                                headingCount: 1,
+                                topHeadings: ["About"],
+                                links: ["https://example.com/team", "https://external.example/legal"],
+                                textSample: "Child sample text",
+                                error: null,
+                            },
+                        ],
                     }),
             } as Response)
         ) as jest.Mock;
@@ -54,5 +72,15 @@ describe("Frontend Form Test", () => {
         // Assert
         expect(fetch).toHaveBeenCalled();
         expect(results.innerHTML).toContain("Example Domain");
+        expect(results.innerHTML).toContain("Interne Links");
+        expect(results.innerHTML).toContain("Externe Links");
+        expect(results.innerHTML).toContain("https://external.example/contact");
+        expect(results.innerHTML).toContain("Tiefenanalyse (1 Ebene tief)");
+        expect(results.innerHTML).toContain("Interne Unterseiten-Links");
+        expect(results.innerHTML).toContain("Externe Unterseiten-Links");
+        expect(results.innerHTML).toContain("https://example.com/team");
+        expect(results.innerHTML).toContain("https://external.example/legal");
+        expect(results.innerHTML).not.toContain("Seitenstruktur");
+        expect(results.innerHTML).toContain("About Example");
     });
 });

@@ -12,6 +12,14 @@ const node_path_1 = __importDefault(require("node:path"));
 exports.app = (0, express_1.default)();
 const port = Number(process.env.PORT ?? 3000);
 const publicDir = node_path_1.default.resolve(process.cwd(), "public");
+const fetchHeaders = { "User-Agent": "Mozilla/5.0 (compatible; WebScraperBot/1.0)" };
+class WebsiteUnavailableError extends Error {
+    statusCode;
+    constructor(statusCode) {
+        super(`Webseite nicht erreichbar (Status ${statusCode}).`);
+        this.statusCode = statusCode;
+    }
+}
 exports.app.use(express_1.default.json());
 exports.app.use(express_1.default.static(publicDir));
 exports.app.get("/", (_req, res) => {
@@ -24,34 +32,18 @@ exports.app.post("/api/analyze", async (req, res) => {
         return;
     }
     try {
-        const response = await fetch(url, {
-            redirect: "follow",
-            headers: { "User-Agent": "Mozilla/5.0 (compatible; WebScraperBot/1.0)" },
+        const pageAnalysis = await analyzePage(url);
+        const linkedPages = await analyzeLinkedPages(pageAnalysis.links, pageAnalysis.finalUrl);
+        res.json({
+            ...pageAnalysis,
+            linkedPages,
         });
-        if (!response.ok) {
-            res.status(400).json({ error: `Webseite nicht erreichbar (Status ${response.status}).` });
+    }
+    catch (error) {
+        if (error instanceof WebsiteUnavailableError) {
+            res.status(400).json({ error: error.message });
             return;
         }
-        const html = await response.text();
-        const topHeadings = extractTags(html, "h1|h2|h3", 8);
-        const analysis = {
-            url,
-            finalUrl: response.url,
-            statusCode: response.status,
-            title: extractFirstTag(html, "title"),
-            metaDescription: extractMetaDescription(html),
-            language: extractHtmlLanguage(html),
-            headingCount: countTags(html, "h1|h2|h3|h4|h5|h6"),
-            topHeadings,
-            paragraphCount: countTags(html, "p"),
-            linkCount: countTags(html, "a"),
-            links: extractLinks(html, response.url),
-            imageCount: countTags(html, "img"),
-            textSample: extractTextSample(html, 220),
-        };
-        res.json(analysis);
-    }
-    catch {
         res.status(500).json({ error: "Analyse fehlgeschlagen. Bitte URL prüfen und erneut versuchen." });
     }
 });
@@ -63,10 +55,113 @@ function startServer() {
 if (require.main === module) {
     startServer();
 }
+async function analyzePage(url) {
+    const { response, html } = await fetchHtml(url);
+    const finalUrl = normalizeUrl(response.url);
+    return {
+        url,
+        finalUrl,
+        statusCode: response.status,
+        title: extractFirstTag(html, "title"),
+        metaDescription: extractMetaDescription(html),
+        language: extractHtmlLanguage(html),
+        headingCount: countTags(html, "h1|h2|h3|h4|h5|h6"),
+        topHeadings: extractTags(html, "h1|h2|h3", 8),
+        paragraphCount: countTags(html, "p"),
+        linkCount: countTags(html, "a"),
+        links: extractLinks(html, finalUrl),
+        imageCount: countTags(html, "img"),
+        textSample: extractTextSample(html, 220),
+    };
+}
+async function fetchHtml(url) {
+    const response = await fetch(url, {
+        redirect: "follow",
+        headers: fetchHeaders,
+    });
+    if (!response.ok) {
+        throw new WebsiteUnavailableError(response.status);
+    }
+    return {
+        response,
+        html: await response.text(),
+    };
+}
+async function analyzeLinkedPages(links, baseUrl) {
+    const sameSiteLinks = filterSameSiteLinks(links, baseUrl);
+    return Promise.all(sameSiteLinks.map(async (link) => {
+        try {
+            const pageAnalysis = await analyzePage(link);
+            return {
+                ...pageAnalysis,
+                error: null,
+            };
+        }
+        catch (error) {
+            return createFailedLinkedPageAnalysis(link, error);
+        }
+    }));
+}
+function createFailedLinkedPageAnalysis(url, error) {
+    return {
+        url,
+        finalUrl: null,
+        statusCode: null,
+        title: null,
+        metaDescription: null,
+        language: null,
+        headingCount: 0,
+        topHeadings: [],
+        paragraphCount: 0,
+        linkCount: 0,
+        links: [],
+        imageCount: 0,
+        textSample: "",
+        error: getLinkedPageErrorMessage(error),
+    };
+}
+function getLinkedPageErrorMessage(error) {
+    if (error instanceof WebsiteUnavailableError) {
+        return error.message;
+    }
+    return "Unterseite konnte nicht analysiert werden.";
+}
+function filterSameSiteLinks(links, baseUrl) {
+    const base = new URL(baseUrl);
+    const normalizedBaseUrl = normalizeUrl(base.href);
+    const seen = new Set();
+    const sameSiteLinks = [];
+    for (const link of links) {
+        try {
+            const parsed = new URL(link);
+            if (!hasHttpProtocol(parsed)) {
+                continue;
+            }
+            parsed.hash = "";
+            const normalizedLink = parsed.href;
+            if (parsed.origin !== base.origin || normalizedLink === normalizedBaseUrl || seen.has(normalizedLink)) {
+                continue;
+            }
+            seen.add(normalizedLink);
+            sameSiteLinks.push(normalizedLink);
+        }
+        catch {
+            continue;
+        }
+    }
+    return sameSiteLinks;
+}
+function normalizeUrl(value) {
+    const parsed = new URL(value);
+    parsed.hash = "";
+    return parsed.href;
+}
+function hasHttpProtocol(url) {
+    return url.protocol === "http:" || url.protocol === "https:";
+}
 function isValidHttpUrl(value) {
     try {
-        const parsed = new URL(value);
-        return parsed.protocol === "http:" || parsed.protocol === "https:";
+        return hasHttpProtocol(new URL(value));
     }
     catch {
         return false;
@@ -138,20 +233,29 @@ function extractTextSample(html, maxLength) {
 function extractLinks(html, baseUrl) {
     const regex = /<a[^>]*href=["']([^"']+)["'][^>]*>/gi;
     const links = [];
+    const seen = new Set();
     for (const match of html.matchAll(regex)) {
         const href = match[1];
-        if (!href)
+        if (!href) {
             continue;
+        }
         try {
-            // Convert relative → absolute URL
-            const absoluteUrl = new URL(href, baseUrl).href;
+            const parsed = new URL(href, baseUrl);
+            if (!hasHttpProtocol(parsed)) {
+                continue;
+            }
+            parsed.hash = "";
+            const absoluteUrl = parsed.href;
+            if (seen.has(absoluteUrl)) {
+                continue;
+            }
+            seen.add(absoluteUrl);
             links.push(absoluteUrl);
         }
         catch {
-            // ignore invalid URLs (mailto:, javascript:, etc.)
+            continue;
         }
     }
-    // remove duplicates
-    return [...new Set(links)];
+    return links;
 }
 //# sourceMappingURL=backend.js.map

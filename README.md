@@ -8,6 +8,7 @@ Kleines Web-Scraper-Projekt mit Express.js + TypeScript.
 
 - Eingabe einer URL im Frontend
 - Backend-Endpunkt `POST /api/analyze` für Basisdaten-Analyse
+- Tiefenanalyse: folgt internen Links genau eine Ebene tief
 - Ausgabe von:
   - HTTP-Status
   - Finaler URL (nach Redirects)
@@ -17,6 +18,7 @@ Kleines Web-Scraper-Projekt mit Express.js + TypeScript.
   - Anzahl von Überschriften, Absätzen, Links und Bildern
   - Erkannte Haupt-Überschriften (h1-h3)
   - kurzer Textauszug
+  - Zusammenfassung gefundener Unterseiten auf derselben Website
 
 ## Starten
 

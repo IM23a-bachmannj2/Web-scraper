@@ -58,8 +58,8 @@ describe("Backend Integration Tests", () => {
     expect(response.headers["content-type"]).toContain("text/html");
   });
 
-  it("should analyze a reachable website and return extracted metadata", async () => {
-    const html = `
+  it("should analyze a reachable website and collect same-site linked pages one level deep", async () => {
+    const rootHtml = `
       <html lang="de">
         <head>
           <title>Integration Test Page</title>
@@ -71,14 +71,39 @@ describe("Backend Integration Tests", () => {
           <p>First paragraph for the sample body.</p>
           <p>Second paragraph with more sample text.</p>
           <a href="/about">About</a>
-          <a href="https://example.com/contact">Contact</a>
+          <a href="https://other-site.example/contact">Contact</a>
           <img src="/hero.png" alt="hero" />
         </body>
       </html>
     `;
-    const fetchDouble = new SuccessfulWebsiteFetchDouble(html, "https://example.com/final-page");
+    const childHtml = `
+      <html lang="de">
+        <head>
+          <title>About Example</title>
+          <meta name="description" content="About sub page" />
+        </head>
+        <body>
+          <h1>About Us</h1>
+          <p>Linked page content for one level deep crawling.</p>
+        </body>
+      </html>
+    `;
+    const fetchCalls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
 
-    global.fetch = fetchDouble.fetch.bind(fetchDouble) as typeof fetch;
+    global.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      fetchCalls.push({ input, init });
+      const requestedUrl = input.toString();
+
+      if (requestedUrl === "https://example.com") {
+        return createSuccessfulResponse(rootHtml, "https://example.com/final-page");
+      }
+
+      if (requestedUrl === "https://example.com/about") {
+        return createSuccessfulResponse(childHtml, "https://example.com/about");
+      }
+
+      throw new Error(`Unexpected URL requested during test: ${requestedUrl}`);
+    }) as typeof fetch;
 
     const response = await sendRequest(baseUrl, "POST", "/api/analyze", {
       url: "https://example.com",
@@ -94,6 +119,16 @@ describe("Backend Integration Tests", () => {
       headingCount: number;
       topHeadings: string[];
       links: string[];
+      linkedPages: Array<{
+        finalUrl: string | null;
+        title: string | null;
+        metaDescription: string | null;
+        paragraphCount: number;
+        linkCount: number;
+        headingCount: number;
+        topHeadings: string[];
+        error: string | null;
+      }>;
     };
 
     expect(response.statusCode).toBe(200);
@@ -106,15 +141,27 @@ describe("Backend Integration Tests", () => {
     expect(payload.imageCount).toBe(1);
     expect(payload.headingCount).toBe(2);
     expect(payload.topHeadings).toEqual(["Headline One", "Headline Two"]);
-    expect(payload.links).toEqual(["https://example.com/about", "https://example.com/contact"]);
-    expect(fetchDouble.calls).toHaveLength(1);
-    expect(fetchDouble.calls[0]?.init).toMatchObject({
+    expect(payload.links).toEqual(["https://example.com/about", "https://other-site.example/contact"]);
+    expect(payload.linkedPages).toHaveLength(1);
+    expect(payload.linkedPages[0]).toMatchObject({
+      finalUrl: "https://example.com/about",
+      title: "About Example",
+      metaDescription: "About sub page",
+      paragraphCount: 1,
+      linkCount: 0,
+      headingCount: 1,
+      topHeadings: ["About Us"],
+      error: null,
+    });
+    expect(fetchCalls).toHaveLength(2);
+    expect(fetchCalls[0]?.init).toMatchObject({
       redirect: "follow",
       headers: { "User-Agent": "Mozilla/5.0 (compatible; WebScraperBot/1.0)" },
     });
+    expect(fetchCalls[1]?.input).toBe("https://example.com/about");
   });
 
-  it("should limit headings and keep fetch double reusable across tests", async () => {
+  it("should limit headings and crawl each same-site link only once", async () => {
     const html = `
       <html>
         <body>
@@ -143,13 +190,77 @@ describe("Backend Integration Tests", () => {
       headingCount: number;
       topHeadings: string[];
       links: string[];
+      linkedPages: Array<{
+        error: string | null;
+      }>;
     };
 
     expect(response.statusCode).toBe(200);
     expect(payload.headingCount).toBe(9);
     expect(payload.topHeadings).toEqual(["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight"]);
     expect(payload.links).toEqual(["https://example.com/same-link"]);
-    expect(fetchDouble.calls).toHaveLength(1);
+    expect(payload.linkedPages).toHaveLength(1);
+    expect(payload.linkedPages[0]?.error).toBeNull();
+    expect(fetchDouble.calls).toHaveLength(2);
+  });
+
+  it("should keep the root analysis successful when a linked page fails", async () => {
+    const fetchCalls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+
+    global.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      fetchCalls.push({ input, init });
+      const requestedUrl = input.toString();
+
+      if (requestedUrl === "https://example.com") {
+        return createSuccessfulResponse(
+          `
+            <html>
+              <head>
+                <title>Root Page</title>
+              </head>
+              <body>
+                <h1>Root</h1>
+                <a href="/broken">Broken</a>
+              </body>
+            </html>
+          `,
+          "https://example.com"
+        );
+      }
+
+      if (requestedUrl === "https://example.com/broken") {
+        return {
+          ok: false,
+          status: 404,
+          url: requestedUrl,
+          text: async () => "",
+        } as Response;
+      }
+
+      throw new Error(`Unexpected URL requested during test: ${requestedUrl}`);
+    }) as typeof fetch;
+
+    const response = await sendRequest(baseUrl, "POST", "/api/analyze", {
+      url: "https://example.com",
+    });
+    const payload = JSON.parse(response.body) as {
+      title: string;
+      linkedPages: Array<{
+        url: string;
+        statusCode: number | null;
+        error: string | null;
+      }>;
+    };
+
+    expect(response.statusCode).toBe(200);
+    expect(payload.title).toBe("Root Page");
+    expect(payload.linkedPages).toHaveLength(1);
+    expect(payload.linkedPages[0]).toMatchObject({
+      url: "https://example.com/broken",
+      statusCode: null,
+      error: "Webseite nicht erreichbar (Status 404).",
+    });
+    expect(fetchCalls).toHaveLength(2);
   });
 
   it("should reject invalid URLs before calling the external fetch", async () => {
@@ -238,4 +349,13 @@ async function sendRequest(baseUrl: string, method: string, pathname: string, bo
 
     request.end();
   });
+}
+
+function createSuccessfulResponse(html: string, url: string): Response {
+  return {
+    ok: true,
+    status: 200,
+    url,
+    text: async () => html,
+  } as Response;
 }
