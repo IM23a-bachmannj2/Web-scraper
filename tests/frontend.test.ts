@@ -1,86 +1,145 @@
-/**
- * @jest-environment jsdom
- */
-
-describe("Frontend Form Test", () => {
-    beforeEach(() => {
-        document.body.innerHTML = `
+describe("Frontend form", () => {
+  beforeEach(() => {
+    document.body.innerHTML = `
       <form id="w-form">
         <input id="website" />
         <p id="error"></p>
-        <button type="submit">Submit</button>
+        <button type="submit">Analyse starten</button>
       </form>
       <div id="results"></div>
     `;
 
-        global.fetch = jest.fn(() =>
-            Promise.resolve({
-                ok: true,
-                json: () =>
-                    Promise.resolve({
-                        statusCode: 200,
-                        finalUrl: "https://example.com",
-                        title: "Example Domain",
-                        metaDescription: "Test",
-                        language: "en",
-                        paragraphCount: 3,
-                        linkCount: 5,
-                        links: ["https://example.com/about", "https://external.example/contact"],
-                        imageCount: 1,
-                        headingCount: 2,
-                        topHeadings: ["Hello"],
-                        textSample: "Sample text",
-                        linkedPages: [
-                            {
-                                url: "https://example.com/about",
-                                finalUrl: "https://example.com/about",
-                                statusCode: 200,
-                                title: "About Example",
-                                metaDescription: "About page",
-                                language: "en",
-                                paragraphCount: 1,
-                                linkCount: 0,
-                                imageCount: 0,
-                                headingCount: 1,
-                                topHeadings: ["About"],
-                                links: ["https://example.com/team", "https://external.example/legal"],
-                                textSample: "Child sample text",
-                                error: null,
-                            },
-                        ],
-                    }),
-            } as Response)
-        ) as jest.Mock;
+    jest.resetModules();
+  });
 
-        jest.resetModules();
-        require("../public/index.js");
-    });
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
-    it("should submit form and display results", async () => {
-        // Arrange
-        const input = document.getElementById("website") as HTMLInputElement;
-        const form = document.getElementById("w-form") as HTMLFormElement;
-        const results = document.getElementById("results")!;
+  it("submits the form and displays analysis results", async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const requestedUrl = input.toString();
 
-        input.value = "https://example.com";
+      if (requestedUrl === "https://example.com") {
+        return createResponse(
+          `
+            <html lang="en">
+              <head>
+                <title>Example Domain</title>
+                <meta name="description" content="Test" />
+              </head>
+              <body>
+                <h1>Hello</h1>
+                <p>Sample text</p>
+                <a href="/about">About</a>
+                <a href="https://external.example/contact">Contact</a>
+                <img src="/hero.png" />
+              </body>
+            </html>
+          `,
+          "https://example.com"
+        );
+      }
 
-        // Act
-        form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      if (requestedUrl === "https://example.com/about") {
+        return createResponse(
+          `
+            <html lang="en">
+              <head>
+                <title>About Example</title>
+                <meta name="description" content="About page" />
+              </head>
+              <body>
+                <h1>About</h1>
+                <p>Child sample text</p>
+                <a href="/team">Team</a>
+                <a href="https://external.example/legal">Legal</a>
+              </body>
+            </html>
+          `,
+          "https://example.com/about"
+        );
+      }
 
-        await new Promise((r) => setTimeout(r, 0));
+      throw new Error(`Unexpected URL requested during test: ${requestedUrl}`);
+    }) as jest.MockedFunction<typeof fetch>;
 
-        // Assert
-        expect(fetch).toHaveBeenCalled();
-        expect(results.innerHTML).toContain("Example Domain");
-        expect(results.innerHTML).toContain("Interne Links");
-        expect(results.innerHTML).toContain("Externe Links");
-        expect(results.innerHTML).toContain("https://external.example/contact");
-        expect(results.innerHTML).toContain("Tiefenanalyse (1 Ebene tief)");
-        expect(results.innerHTML).toContain("Interne Unterseiten-Links");
-        expect(results.innerHTML).toContain("Externe Unterseiten-Links");
-        expect(results.innerHTML).toContain("https://example.com/team");
-        expect(results.innerHTML).toContain("https://external.example/legal");
-        expect(results.innerHTML).not.toContain("Seitenstruktur");
-        expect(results.innerHTML).toContain("About Example");
-    });
+    loadApp();
+
+    const input = document.getElementById("website") as HTMLInputElement;
+    const form = document.getElementById("w-form") as HTMLFormElement;
+    const results = document.getElementById("results") as HTMLDivElement;
+    const button = form.querySelector("button") as HTMLButtonElement;
+
+    input.value = "https://example.com";
+    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    await flushAsyncWork();
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(results.innerHTML).toContain("Example Domain");
+    expect(results.innerHTML).toContain("Interne Links");
+    expect(results.innerHTML).toContain("Externe Links");
+    expect(results.innerHTML).toContain("https://external.example/contact");
+    expect(results.innerHTML).toContain("Tiefenanalyse (1 Ebene tief)");
+    expect(results.innerHTML).toContain("Interne Unterseiten-Links");
+    expect(results.innerHTML).toContain("Externe Unterseiten-Links");
+    expect(results.innerHTML).toContain("https://example.com/team");
+    expect(results.innerHTML).toContain("https://external.example/legal");
+    expect(results.innerHTML).toContain("About Example");
+    expect(button.disabled).toBe(false);
+  });
+
+  it("shows a validation error for invalid URLs", () => {
+    global.fetch = jest.fn() as jest.MockedFunction<typeof fetch>;
+
+    loadApp();
+
+    const input = document.getElementById("website") as HTMLInputElement;
+    const form = document.getElementById("w-form") as HTMLFormElement;
+    const error = document.getElementById("error") as HTMLParagraphElement;
+
+    input.value = "not-a-url";
+    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(error.textContent).toBe("Please enter a valid URL (http/https)");
+  });
+
+  it("shows a browser-side fetch error when the target blocks CORS", async () => {
+    global.fetch = jest.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    }) as jest.MockedFunction<typeof fetch>;
+
+    loadApp();
+
+    const input = document.getElementById("website") as HTMLInputElement;
+    const form = document.getElementById("w-form") as HTMLFormElement;
+    const error = document.getElementById("error") as HTMLParagraphElement;
+    const results = document.getElementById("results") as HTMLDivElement;
+
+    input.value = "https://example.com";
+    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    await flushAsyncWork();
+
+    expect(error.textContent).toContain("CORS-Freigabe");
+    expect(results.innerHTML).toBe("");
+  });
 });
+
+function loadApp(): void {
+  const app = require("../src/index") as typeof import("../src/index");
+  app.initializeApp();
+}
+
+async function flushAsyncWork(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function createResponse(html: string, url: string, status = 200): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    url,
+    text: async () => html,
+  } as Response;
+}

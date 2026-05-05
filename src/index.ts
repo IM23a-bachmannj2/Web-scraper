@@ -1,4 +1,4 @@
-interface WebsiteAnalysis {
+export interface PageAnalysis {
   url: string;
   finalUrl: string;
   statusCode: number;
@@ -9,13 +9,12 @@ interface WebsiteAnalysis {
   topHeadings: string[];
   paragraphCount: number;
   linkCount: number;
-  imageCount: number;
   links: string[];
+  imageCount: number;
   textSample: string;
-  linkedPages: LinkedPageAnalysis[];
 }
 
-interface LinkedPageAnalysis {
+export interface LinkedPageAnalysis {
   url: string;
   finalUrl: string | null;
   statusCode: number | null;
@@ -26,74 +25,437 @@ interface LinkedPageAnalysis {
   topHeadings: string[];
   paragraphCount: number;
   linkCount: number;
-  imageCount: number;
   links: string[];
+  imageCount: number;
   textSample: string;
   error: string | null;
 }
 
-const form = document.getElementById("w-form") as HTMLFormElement | null;
-const input = document.getElementById("website") as HTMLInputElement | null;
-const error = document.getElementById("error") as HTMLParagraphElement | null;
-const results = document.getElementById("results") as HTMLDivElement | null;
-
-if (!form || !input || !error || !results) {
-  throw new Error("Required DOM elements not found");
+export interface WebsiteAnalysis extends PageAnalysis {
+  linkedPages: LinkedPageAnalysis[];
 }
 
-form.addEventListener("submit", async (event: SubmitEvent) => {
-  event.preventDefault();
+interface AppElements {
+  form: HTMLFormElement;
+  input: HTMLInputElement;
+  error: HTMLParagraphElement;
+  results: HTMLDivElement;
+  submitButton: HTMLButtonElement | HTMLInputElement | null;
+}
 
-  const value = input.value.trim();
+type FetchLike = typeof fetch;
 
-  if (!value) {
-    showError("URL must not be empty");
-    return;
+const MAX_TEXT_SAMPLE_LENGTH = 220;
+const MAX_TOP_HEADINGS = 8;
+const DEFAULT_SUBMIT_LABEL = "Analyse starten";
+
+export class InvalidUrlError extends Error {
+  public constructor() {
+    super("Bitte eine gültige http/https URL senden.");
+  }
+}
+
+export class WebsiteUnavailableError extends Error {
+  public constructor(public readonly statusCode: number) {
+    super(`Webseite nicht erreichbar (Status ${statusCode}).`);
+  }
+}
+
+export class BrowserFetchError extends Error {
+  public constructor() {
+    super(
+      "Die Webseite konnte nicht direkt im Browser geladen werden. Auf GitHub Pages scheitern viele Seiten ohne CORS-Freigabe."
+    );
+  }
+}
+
+export async function analyzeWebsite(url: string, fetchImplementation: FetchLike = fetch): Promise<WebsiteAnalysis> {
+  if (!isValidHttpUrl(url)) {
+    throw new InvalidUrlError();
   }
 
-  if (!isValidUrl(value)) {
-    showError("Please enter a valid URL (http/https)");
-    return;
-  }
+  const pageAnalysis = await analyzePage(url, fetchImplementation);
+  const linkedPages = await analyzeLinkedPages(pageAnalysis.links, pageAnalysis.finalUrl, fetchImplementation);
 
-  clearError();
-  results.innerHTML = "<p>Analysiere Webseite...</p>";
+  return {
+    ...pageAnalysis,
+    linkedPages,
+  };
+}
+
+async function analyzePage(url: string, fetchImplementation: FetchLike): Promise<PageAnalysis> {
+  const { response, html } = await fetchHtml(url, fetchImplementation);
+  const finalUrl = normalizeUrl(response.url || url);
+  const parsedDocument = parseHtml(html);
+
+  return {
+    url,
+    finalUrl,
+    statusCode: response.status,
+    title: toNullableText(parsedDocument.querySelector("title")?.textContent),
+    metaDescription: extractMetaDescription(parsedDocument),
+    language: extractHtmlLanguage(parsedDocument),
+    headingCount: parsedDocument.querySelectorAll("h1, h2, h3, h4, h5, h6").length,
+    topHeadings: extractTopHeadings(parsedDocument),
+    paragraphCount: parsedDocument.getElementsByTagName("p").length,
+    linkCount: parsedDocument.getElementsByTagName("a").length,
+    links: extractLinksFromDocument(parsedDocument, finalUrl),
+    imageCount: parsedDocument.getElementsByTagName("img").length,
+    textSample: extractTextSample(parsedDocument, MAX_TEXT_SAMPLE_LENGTH),
+  };
+}
+
+async function fetchHtml(
+  url: string,
+  fetchImplementation: FetchLike
+): Promise<{
+  response: Response;
+  html: string;
+}> {
+  let response: Response;
 
   try {
-    const response = await fetch("/api/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: value }),
-    });
+    response = await fetchImplementation(url);
+  } catch {
+    throw new BrowserFetchError();
+  }
 
-    const payload = (await response.json()) as WebsiteAnalysis | { error: string };
+  if (!response.ok) {
+    throw new WebsiteUnavailableError(response.status);
+  }
 
-    if (!response.ok || "error" in payload) {
-      showError("error" in payload ? payload.error : "Analyse fehlgeschlagen");
-      results.innerHTML = "";
+  try {
+    return {
+      response,
+      html: await response.text(),
+    };
+  } catch {
+    throw new BrowserFetchError();
+  }
+}
+
+async function analyzeLinkedPages(
+  links: string[],
+  baseUrl: string,
+  fetchImplementation: FetchLike
+): Promise<LinkedPageAnalysis[]> {
+  const sameSiteLinks = filterSameSiteLinks(links, baseUrl);
+
+  return Promise.all(
+    sameSiteLinks.map(async (link) => {
+      try {
+        const pageAnalysis = await analyzePage(link, fetchImplementation);
+
+        return {
+          ...pageAnalysis,
+          error: null,
+        };
+      } catch (error) {
+        return createFailedLinkedPageAnalysis(link, error);
+      }
+    })
+  );
+}
+
+function parseHtml(html: string): Document {
+  return new DOMParser().parseFromString(html, "text/html");
+}
+
+function extractMetaDescription(parsedDocument: Document): string | null {
+  const metaTags = Array.from(parsedDocument.getElementsByTagName("meta"));
+  const descriptionTag = metaTags.find((tag) => tag.getAttribute("name")?.toLowerCase() === "description");
+
+  return toNullableText(descriptionTag?.getAttribute("content"));
+}
+
+function extractHtmlLanguage(parsedDocument: Document): string | null {
+  return toNullableText(parsedDocument.documentElement.getAttribute("lang"));
+}
+
+function extractTopHeadings(parsedDocument: Document): string[] {
+  return Array.from(parsedDocument.querySelectorAll("h1, h2, h3"))
+    .map((heading) => normalizeText(heading.textContent))
+    .filter((heading) => heading.length > 0)
+    .slice(0, MAX_TOP_HEADINGS);
+}
+
+function extractTextSample(parsedDocument: Document, maxLength: number): string {
+  const sourceText = parsedDocument.body?.textContent ?? parsedDocument.documentElement.textContent ?? "";
+  return normalizeText(sourceText).slice(0, maxLength);
+}
+
+function createFailedLinkedPageAnalysis(url: string, error: unknown): LinkedPageAnalysis {
+  return {
+    url,
+    finalUrl: null,
+    statusCode: null,
+    title: null,
+    metaDescription: null,
+    language: null,
+    headingCount: 0,
+    topHeadings: [],
+    paragraphCount: 0,
+    linkCount: 0,
+    links: [],
+    imageCount: 0,
+    textSample: "",
+    error: getLinkedPageErrorMessage(error),
+  };
+}
+
+function getLinkedPageErrorMessage(error: unknown): string {
+  if (
+    error instanceof BrowserFetchError ||
+    error instanceof InvalidUrlError ||
+    error instanceof WebsiteUnavailableError
+  ) {
+    return error.message;
+  }
+
+  return "Unterseite konnte nicht analysiert werden.";
+}
+
+function filterSameSiteLinks(links: string[], baseUrl: string): string[] {
+  const base = new URL(baseUrl);
+  const normalizedBaseUrl = normalizeUrl(base.href);
+  const seen = new Set<string>();
+  const sameSiteLinks: string[] = [];
+
+  for (const link of links) {
+    try {
+      const parsed = new URL(link);
+
+      if (!hasHttpProtocol(parsed)) {
+        continue;
+      }
+
+      parsed.hash = "";
+      const normalizedLink = parsed.href;
+
+      if (parsed.origin !== base.origin || normalizedLink === normalizedBaseUrl || seen.has(normalizedLink)) {
+        continue;
+      }
+
+      seen.add(normalizedLink);
+      sameSiteLinks.push(normalizedLink);
+    } catch {
+      continue;
+    }
+  }
+
+  return sameSiteLinks;
+}
+
+function normalizeUrl(value: string): string {
+  const parsed = new URL(value);
+  parsed.hash = "";
+  return parsed.href;
+}
+
+function hasHttpProtocol(url: URL): boolean {
+  return url.protocol === "http:" || url.protocol === "https:";
+}
+
+export function isValidHttpUrl(value: string): boolean {
+  try {
+    return hasHttpProtocol(new URL(value));
+  } catch {
+    return false;
+  }
+}
+
+export function extractLinks(html: string, baseUrl: string): string[] {
+  return extractLinksFromDocument(parseHtml(html), baseUrl);
+}
+
+function extractLinksFromDocument(parsedDocument: Document, baseUrl: string): string[] {
+  const links: string[] = [];
+  const seen = new Set<string>();
+
+  for (const anchor of Array.from(parsedDocument.getElementsByTagName("a"))) {
+    const href = anchor.getAttribute("href");
+
+    if (!href) {
+      continue;
+    }
+
+    try {
+      const parsed = new URL(href, baseUrl);
+
+      if (!hasHttpProtocol(parsed)) {
+        continue;
+      }
+
+      parsed.hash = "";
+      const absoluteUrl = parsed.href;
+
+      if (seen.has(absoluteUrl)) {
+        continue;
+      }
+
+      seen.add(absoluteUrl);
+      links.push(absoluteUrl);
+    } catch {
+      continue;
+    }
+  }
+
+  return links;
+}
+
+function normalizeText(value: string | null | undefined): string {
+  return (value ?? "").replace(/\s+/g, " ").trim();
+}
+
+function toNullableText(value: string | null | undefined): string | null {
+  const normalizedValue = normalizeText(value);
+  return normalizedValue === "" ? null : normalizedValue;
+}
+
+export function splitLinksByOrigin(
+  links: string[],
+  baseUrl: string
+): {
+  internalLinks: string[];
+  externalLinks: string[];
+} {
+  const baseOrigin = new URL(baseUrl).origin;
+  const internalLinks: string[] = [];
+  const externalLinks: string[] = [];
+
+  for (const link of links) {
+    try {
+      const parsed = new URL(link);
+
+      if (parsed.origin === baseOrigin) {
+        internalLinks.push(link);
+        continue;
+      }
+
+      externalLinks.push(link);
+    } catch {
+      externalLinks.push(link);
+    }
+  }
+
+  return { internalLinks, externalLinks };
+}
+
+export function initializeApp(root: Document = document): void {
+  const elements = getAppElements(root);
+
+  if (!elements) {
+    return;
+  }
+
+  if (elements.form.dataset.initialized === "true") {
+    return;
+  }
+
+  elements.form.dataset.initialized = "true";
+
+  if (elements.submitButton instanceof HTMLButtonElement || elements.submitButton instanceof HTMLInputElement) {
+    elements.submitButton.dataset.idleLabel =
+      elements.submitButton instanceof HTMLInputElement
+        ? elements.submitButton.value || DEFAULT_SUBMIT_LABEL
+        : elements.submitButton.textContent?.trim() || DEFAULT_SUBMIT_LABEL;
+  }
+
+  elements.form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const value = elements.input.value.trim();
+
+    if (!value) {
+      showError(elements, "URL must not be empty");
       return;
     }
 
-    renderResults(payload);
-  } catch {
-    showError("Server nicht erreichbar. Bitte Backend starten.");
-    results.innerHTML = "";
+    if (!isValidHttpUrl(value)) {
+      showError(elements, "Please enter a valid URL (http/https)");
+      return;
+    }
+
+    clearError(elements);
+    setBusyState(elements, true);
+    elements.results.innerHTML = "<p>Analysiere Webseite direkt im Browser...</p>";
+
+    try {
+      const analysis = await analyzeWebsite(value);
+      renderResults(elements.results, analysis);
+    } catch (error) {
+      showError(elements, getUserFacingErrorMessage(error));
+      elements.results.innerHTML = "";
+    } finally {
+      setBusyState(elements, false);
+    }
+  });
+}
+
+function getAppElements(root: Document): AppElements | null {
+  const form = root.getElementById("w-form");
+  const input = root.getElementById("website");
+  const error = root.getElementById("error");
+  const results = root.getElementById("results");
+
+  if (
+    !(form instanceof HTMLFormElement) ||
+    !(input instanceof HTMLInputElement) ||
+    !(error instanceof HTMLParagraphElement) ||
+    !(results instanceof HTMLDivElement)
+  ) {
+    return null;
   }
-});
 
-function renderResults(data: WebsiteAnalysis): void {
+  const submitButton = form.querySelector("button[type='submit'], button:not([type]), input[type='submit']");
+
+  return {
+    form,
+    input,
+    error,
+    results,
+    submitButton:
+      submitButton instanceof HTMLButtonElement || submitButton instanceof HTMLInputElement ? submitButton : null,
+  };
+}
+
+function setBusyState(elements: AppElements, isBusy: boolean): void {
+  elements.input.disabled = isBusy;
+
+  if (!elements.submitButton) {
+    return;
+  }
+
+  elements.submitButton.disabled = isBusy;
+  const idleLabel = elements.submitButton.dataset.idleLabel || DEFAULT_SUBMIT_LABEL;
+
+  if (elements.submitButton instanceof HTMLInputElement) {
+    elements.submitButton.value = isBusy ? "Analysiere..." : idleLabel;
+    return;
+  }
+
+  elements.submitButton.textContent = isBusy ? "Analysiere..." : idleLabel;
+}
+
+function getUserFacingErrorMessage(error: unknown): string {
+  if (error instanceof BrowserFetchError || error instanceof InvalidUrlError || error instanceof WebsiteUnavailableError) {
+    return error.message;
+  }
+
+  return "Analyse fehlgeschlagen. Bitte URL prüfen und erneut versuchen.";
+}
+
+function renderResults(results: HTMLDivElement, data: WebsiteAnalysis): void {
   const { internalLinks, externalLinks } = splitLinksByOrigin(data.links, data.finalUrl);
-
   const headings =
     data.topHeadings.length > 0
       ? `<ul class="result-list">${data.topHeadings.map((heading) => `<li>${escapeHtml(heading)}</li>`).join("")}</ul>`
       : '<p class="muted">Keine Überschriften gefunden.</p>';
-
   const internalLinksMarkup = renderLinkList(internalLinks, "Keine internen Links gefunden.");
   const externalLinksMarkup = renderLinkList(externalLinks, "Keine externen Links gefunden.");
   const recursiveSearchMarkup = renderRecursiveSearch(data.linkedPages);
 
-  results!.innerHTML = `
+  results.innerHTML = `
     <section class="analysis-layout">
       <h2>Basisdaten</h2>
       <div class="data-grid">
@@ -329,54 +691,16 @@ function summarizeLinkedPages(linkedPages: LinkedPageAnalysis[]): {
   );
 }
 
-function splitLinksByOrigin(
-  links: string[],
-  baseUrl: string
-): {
-  internalLinks: string[];
-  externalLinks: string[];
-} {
-  const baseOrigin = new URL(baseUrl).origin;
-  const internalLinks: string[] = [];
-  const externalLinks: string[] = [];
-
-  for (const link of links) {
-    try {
-      const parsed = new URL(link);
-
-      if (parsed.origin === baseOrigin) {
-        internalLinks.push(link);
-        continue;
-      }
-
-      externalLinks.push(link);
-    } catch {
-      externalLinks.push(link);
-    }
-  }
-
-  return { internalLinks, externalLinks };
+function showError(elements: AppElements, message: string): void {
+  elements.error.textContent = message;
+  elements.error.style.display = "block";
+  elements.input.classList.add("is-invalid");
 }
 
-function isValidUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-function showError(message: string): void {
-  error!.textContent = message;
-  error!.style.display = "block";
-  input!.classList.add("is-invalid");
-}
-
-function clearError(): void {
-  error!.textContent = "";
-  error!.style.display = "none";
-  input!.classList.remove("is-invalid");
+function clearError(elements: AppElements): void {
+  elements.error.textContent = "";
+  elements.error.style.display = "none";
+  elements.input.classList.remove("is-invalid");
 }
 
 function escapeHtml(value: string): string {
@@ -386,4 +710,8 @@ function escapeHtml(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+if (typeof document !== "undefined") {
+  initializeApp();
 }

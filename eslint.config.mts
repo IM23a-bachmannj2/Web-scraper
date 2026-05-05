@@ -2,26 +2,27 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 import { defineConfig } from "eslint/config";
 export default defineConfig([
-    {
-        ignores: ["coverage/**", "dist/**", "node_modules/**"],
+  {
+    ignores: ["coverage/**", "dist/**", "node_modules/**"],
+  },
+  {
+    files: ["public/**/*.js", "src/**/*.{ts,mts,cts}"],
+    languageOptions: {
+      globals: globals.browser,
+      sourceType: "module",
     },
-    {
-        files: ["public/**/*.js"],
-        languageOptions: {
-            globals: globals.browser,
-            sourceType: "script",
-        },
+  },
+  {
+    files: ["tests/**/*.{ts,mts,cts}"],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.jest,
+        ...globals.node,
+      },
     },
-    {
-        files: ["src/**/*.{ts,mts,cts}", "tests/**/*.{ts,mts,cts}"],
-        languageOptions: {
-            globals: {
-                ...globals.node,
-                ...globals.jest,
-            },
-        },
-    },
-    tseslint.configs.recommended,
+  },
+  tseslint.configs.recommended,
   {
     files: ["tests/**/*.{ts,mts,cts}"],
     rules: {
@@ -29,7 +30,10 @@ export default defineConfig([
     },
   },
   {
-    files: ["*.config.js", "jest.config.js"],
+    files: ["*.config.js", "jest.config.js", "scripts/**/*.mjs"],
+    languageOptions: {
+      globals: globals.node,
+    },
     rules: {
       "@typescript-eslint/no-require-imports": "off",
     },

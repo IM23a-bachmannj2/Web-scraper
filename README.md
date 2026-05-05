@@ -1,31 +1,31 @@
-[![Build Frontend](https://github.com/<USERNAME>/<REPO>/actions/workflows/frontend_job.yml/badge.svg)](https://github.com/IM23a-bachmannj2/Web-scraper/actions/workflows/frontend_job.yml)
+[![CI](https://github.com/IM23a-bachmannj2/Web-scraper/actions/workflows/ci.yml/badge.svg)](https://github.com/IM23a-bachmannj2/Web-scraper/actions/workflows/ci.yml)
 
 # Web-scraper
 
-Kleines Web-Scraper-Projekt mit Express.js + TypeScript.
+Statische Website-Analyse mit TypeScript. Die komplette Analyse laeuft jetzt im Frontend, damit das Projekt direkt ueber GitHub Pages deployt werden kann.
 
 ## Funktionen
 
 - Eingabe einer URL im Frontend
-- Backend-Endpunkt `POST /api/analyze` für Basisdaten-Analyse
-- Tiefenanalyse: folgt internen Links genau eine Ebene tief
-- Ausgabe von:
-  - HTTP-Status
-  - Finaler URL (nach Redirects)
-  - Seitentitel
-  - Meta-Description
-  - Sprache (`<html lang>`)
-  - Anzahl von Überschriften, Absätzen, Links und Bildern
-  - Erkannte Haupt-Überschriften (h1-h3)
-  - kurzer Textauszug
-  - Zusammenfassung gefundener Unterseiten auf derselben Website
+- Analyse von Seitentitel, Meta-Description, Sprache, Ueberschriften, Absaetzen, Links und Bildern
+- Tiefenanalyse fuer interne Links genau eine Ebene tief
+- Anzeige interner und externer Links inklusive Unterseiten-Zusammenfassung
+- GitHub Pages Deployment ohne Express oder separaten Backend-Workflow
 
-## Starten
+## Wichtige Einschraenkung
+
+Die GitHub Pages Version laedt Webseiten direkt aus dem Browser. Viele Seiten erlauben das wegen CORS nicht. In diesen Faellen zeigt die App eine passende Fehlermeldung an, statt wie frueher ueber ein eigenes Backend zu gehen.
+
+## Lokal starten
 
 ```bash
-npm install
-npm run build
-npm start
+pnpm install
+pnpm run build
+pnpm start
 ```
 
-Dann öffnen: `http://localhost:3000`.
+Danach ist die statische Vorschau unter `http://localhost:3000` verfuegbar.
+
+## Deployment
+
+`ci.yml` prueft Format, Lint, Build und Tests. `deploy-pages.yml` baut die statische Version und deployed den Inhalt von `public/` nach GitHub Pages.

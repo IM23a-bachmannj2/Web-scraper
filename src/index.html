@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="./style.css" />
+    <title>Explain This Website</title>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <h1>Explain This Website</h1>
+        <p class="hero-copy">
+          Analyse a page directly in the browser and review the first layer of internal links.
+        </p>
+      </div>
+    </header>
+
+    <main>
+      <section class="card">
+        <div class="card-intro">
+          <p class="helper-text">
+            GitHub Pages mode: the analysis runs entirely in the browser. Websites without CORS access cannot be
+            fetched from this frontend-only version.
+          </p>
+        </div>
+
+        <form id="w-form">
+          <label class="form-label" for="website">Website URL</label>
+          <input type="text" id="website" name="website-analyser" placeholder="https://example.com" />
+
+          <p id="error" class="error" aria-live="polite"></p>
+
+          <button type="submit">Analyse starten</button>
+        </form>
+        <div id="results" class="results" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <footer>
+      <span>Static TypeScript build for GitHub Pages</span>
+    </footer>
+
+    <script type="module" src="./index.js"></script>
+  </body>
+</html>

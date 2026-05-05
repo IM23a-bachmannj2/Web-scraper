@@ -1,7 +1,5 @@
 {
   "dependencies": {
-    "@types/express": "^5.0.6",
-    "express": "^5.2.1",
     "jiti": "^2.6.1",
     "node": "^25.5.0",
     "typescript": "^5.9.3"
@@ -19,8 +17,8 @@
     "typescript-eslint": "^8.57.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/src/backend.js",
+    "build": "tsc -p tsconfig.json && cp src/index.html dist/ && cp src/style.css dist/",
+    "start": "node scripts/preview.mjs",
     "format": "prettier --write .",
     "format-check": "prettier --check .",
     "lint": "eslint . --fix",

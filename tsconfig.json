@@ -1,31 +1,25 @@
 {
   "compilerOptions": {
-    "rootDir": ".",
+    "rootDir": "src",
     "outDir": "dist",
     "target": "ES2021",
     "lib": [
       "ES2021",
       "DOM"
     ],
-    "module": "commonjs",
-    "types": [
-      "node",
-      "jest"
-    ],
-    "sourceMap": true,
-    "declaration": true,
-    "declarationMap": true,
-    "esModuleInterop": true,
+    "module": "ES2022",
+    "sourceMap": false,
+    "declaration": false,
+    "declarationMap": false,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "strict": true,
-    "jsx": "react-jsx",
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
     "skipLibCheck": true
   },
   "include": [
-    "src"
+    "src/*"
   ]
 }
