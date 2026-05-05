@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const currentFilePath = fileURLToPath(import.meta.url);
-const publicDir = path.resolve(path.dirname(currentFilePath), "../public");
+const publicDir = path.resolve(path.dirname(currentFilePath), "../dist");
 const port = Number(process.env.PORT ?? 3000);
 
 const mimeTypes = new Map([
