@@ -2,6 +2,9 @@ const form = document.getElementById("w-form");
 const input = document.getElementById("website");
 const error = document.getElementById("error");
 const results = document.getElementById("results");
+const baseUrl = window.location.pathname.endsWith("/")
+  ? window.location.href
+  : `${window.location.href}/`;
 
 if (!form || !input || !error || !results) {
   throw new Error("Required DOM elements not found");
@@ -26,7 +29,7 @@ form.addEventListener("submit", async (event) => {
   results.innerHTML = "<p>Analysiere Webseite...</p>";
 
   try {
-    const response = await fetch("/api/analyze", {
+    const response = await fetch(new URL("api/analyze", baseUrl), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url: value }),
