@@ -65,7 +65,7 @@ pipeline {
             }
             steps {
                 sh """
-                    docker build -t $BACKEND_CONTAINER backend/
+                    docker build -t $BACKEND_CONTAINER /
                     
                     docker stop $BACKEND_CONTAINER || true
                     docker rm $BACKEND_CONTAINER || true
