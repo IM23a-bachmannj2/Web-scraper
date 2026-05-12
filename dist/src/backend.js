@@ -13,15 +13,14 @@ exports.app = (0, express_1.default)();
 const port = Number(process.env.PORT ?? 3000);
 const publicDir = node_path_1.default.resolve(process.cwd(), "public");
 const fetchHeaders = { "User-Agent": "Mozilla/5.0 (compatible; WebScraperBot/1.0)" };
+exports.app.use(express_1.default.json());
+exports.app.use(express_1.default.static(publicDir));
 class WebsiteUnavailableError extends Error {
-    statusCode;
     constructor(statusCode) {
         super(`Webseite nicht erreichbar (Status ${statusCode}).`);
         this.statusCode = statusCode;
     }
 }
-exports.app.use(express_1.default.json());
-exports.app.use(express_1.default.static(publicDir));
 exports.app.get("/", (_req, res) => {
     res.sendFile(node_path_1.default.join(publicDir, "index.html"));
 });
