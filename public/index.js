@@ -2,9 +2,8 @@ const form = document.getElementById("w-form");
 const input = document.getElementById("website");
 const error = document.getElementById("error");
 const results = document.getElementById("results");
-const baseUrl = window.location.pathname.endsWith("/")
-  ? window.location.href
-  : `${window.location.href}/`;
+const apiBasePath = window.location.pathname.replace(/^\/projects\//, "/api/");
+const apiUrl = `${window.location.origin}${apiBasePath}api/analyze`;
 
 if (!form || !input || !error || !results) {
   throw new Error("Required DOM elements not found");
@@ -29,7 +28,7 @@ form.addEventListener("submit", async (event) => {
   results.innerHTML = "<p>Analysiere Webseite...</p>";
 
   try {
-    const response = await fetch(new URL("api/analyze", baseUrl), {
+    const response = await fetch(new URL(apiUrl), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url: value }),
