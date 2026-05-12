@@ -7,7 +7,7 @@ pipeline {
     }
 
     environment {
-        PROJECT_NAME       = "Web-scraper"
+        PROJECT_NAME       = "web-scraper"
         TARGET_DIR         = "/var/jenkins_home/projects/${PROJECT_NAME}/${BRANCH_NAME}"
         SONAR_SCANNER_OPTS = "-Xmx512m"
         BACKEND_CONTAINER  = "${PROJECT_NAME}_${BRANCH_NAME}_backend"
