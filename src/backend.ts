@@ -123,7 +123,7 @@ async function analyzePage(url: string): Promise<PageAnalysis> {
   };
 }
 
-async function fetchHtml(url: string): Promise<{ response: Response; html: string }> {
+async function fetchHtml(url: string): Promise<{ response: globalThis.Response; html: string }> {
   const response = await fetch(url, {
     redirect: "follow",
     headers: fetchHeaders,

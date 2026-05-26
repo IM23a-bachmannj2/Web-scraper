@@ -20,7 +20,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/src/backend.js",
+    "start": "node dist/backend.js",
     "format": "prettier --write .",
     "format-check": "prettier --check .",
     "lint": "eslint . --fix",
