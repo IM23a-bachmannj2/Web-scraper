@@ -56,13 +56,6 @@ pipeline {
             }
         }
         stage('Deploy Backend') {
-            when {
-                anyOf {
-                    branch 'master'
-                    branch 'develop'
-                    branch 'feature-static-app'
-                }
-            }
             steps {
                 sh """
                     docker build -t $BACKEND_CONTAINER .
@@ -73,6 +66,7 @@ pipeline {
                     docker run -d \
                         --name $BACKEND_CONTAINER \
                         --network infra-net \
+                        --restart unless-stopped \
                         -e PORT=5000 \
                         $BACKEND_CONTAINER
                 """

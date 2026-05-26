@@ -2,7 +2,7 @@ import express, { type Express, type Request, type Response } from "express";
 import path from "node:path";
 
 export const app: Express = express();
-const port = Number(process.env.PORT ?? 3000);
+const port = Number(process.env.PORT ?? 5000);
 const publicDir = path.resolve(process.cwd(), "public");
 const fetchHeaders = { "User-Agent": "Mozilla/5.0 (compatible; WebScraperBot/1.0)" };
 
