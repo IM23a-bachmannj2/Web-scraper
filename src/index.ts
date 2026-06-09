@@ -32,19 +32,32 @@ interface LinkedPageAnalysis {
   error: string | null;
 }
 
+interface AnalyzeErrorResponse {
+  error: string;
+}
+
 const form = document.getElementById("w-form") as HTMLFormElement | null;
 const input = document.getElementById("website") as HTMLInputElement | null;
 const error = document.getElementById("error") as HTMLParagraphElement | null;
 const results = document.getElementById("results") as HTMLDivElement | null;
+const apiBasePath = window.location.pathname.replace(/^\/projects\//, "/api/");
+const apiUrl = `${window.location.origin}${apiBasePath}api/analyze`;
 
 if (!form || !input || !error || !results) {
   throw new Error("Required DOM elements not found");
 }
 
-form.addEventListener("submit", async (event: SubmitEvent) => {
+const formElement = form;
+const inputElement = input;
+const errorElement = error;
+const resultsElement = results;
+
+renderEmptyState();
+
+formElement.addEventListener("submit", async (event: SubmitEvent) => {
   event.preventDefault();
 
-  const value = input.value.trim();
+  const value = inputElement.value.trim();
 
   if (!value) {
     showError("URL must not be empty");
@@ -57,90 +70,171 @@ form.addEventListener("submit", async (event: SubmitEvent) => {
   }
 
   clearError();
-  results.innerHTML = "<p>Analysiere Webseite...</p>";
+  renderLoadingState(value);
 
   try {
-    const response = await fetch("/api/analyze", {
+    const response = await fetch(new URL(apiUrl), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url: value }),
     });
 
-    const payload = (await response.json()) as WebsiteAnalysis | { error: string };
+    const payload = (await response.json()) as WebsiteAnalysis | AnalyzeErrorResponse;
 
-    if (!response.ok || "error" in payload) {
-      showError("error" in payload ? payload.error : "Analyse fehlgeschlagen");
-      results.innerHTML = "";
+    if ("error" in payload) {
+      showError(payload.error);
+      renderEmptyState();
+      return;
+    }
+
+    if (!response.ok) {
+      showError("Analyse fehlgeschlagen");
+      renderEmptyState();
       return;
     }
 
     renderResults(payload);
   } catch {
     showError("Server nicht erreichbar. Bitte Backend starten.");
-    results.innerHTML = "";
+    renderEmptyState();
   }
 });
 
 function renderResults(data: WebsiteAnalysis): void {
-  const { internalLinks, externalLinks } = splitLinksByOrigin(data.links, data.finalUrl);
+  const links = Array.isArray(data.links) ? data.links : [];
+  const topHeadings = Array.isArray(data.topHeadings) ? data.topHeadings : [];
+  const linkedPages = Array.isArray(data.linkedPages) ? data.linkedPages : [];
+  const finalUrl = data.finalUrl || "";
+  const { internalLinks, externalLinks } = splitLinksByOrigin(links, finalUrl);
+  const summaryTitle = escapeHtml(data.title || getHostnameLabel(finalUrl) || finalUrl || "Analyzed page");
 
   const headings =
-    data.topHeadings.length > 0
-      ? `<ul class="result-list">${data.topHeadings.map((heading) => `<li>${escapeHtml(heading)}</li>`).join("")}</ul>`
+    topHeadings.length > 0
+      ? `<ul class="result-list">${topHeadings.map((heading) => `<li>${escapeHtml(heading)}</li>`).join("")}</ul>`
       : '<p class="muted">Keine Überschriften gefunden.</p>';
 
   const internalLinksMarkup = renderLinkList(internalLinks, "Keine internen Links gefunden.");
   const externalLinksMarkup = renderLinkList(externalLinks, "Keine externen Links gefunden.");
-  const recursiveSearchMarkup = renderRecursiveSearch(data.linkedPages);
+  const recursiveSearchMarkup = renderRecursiveSearch(linkedPages);
 
-  results!.innerHTML = `
+  resultsElement.innerHTML = `
     <section class="analysis-layout">
-      <h2>Basisdaten</h2>
-      <div class="data-grid">
-        <p><strong>Status</strong><span>${data.statusCode}</span></p>
-        <p><strong>URL</strong><span>${escapeHtml(data.finalUrl)}</span></p>
-        <p><strong>Title</strong><span>${escapeHtml(data.title ?? "-")}</span></p>
-        <p><strong>Meta Description</strong><span>${escapeHtml(data.metaDescription ?? "-")}</span></p>
-        <p><strong>Sprache</strong><span>${escapeHtml(data.language ?? "-")}</span></p>
-        <p><strong>Absätze</strong><span>${data.paragraphCount}</span></p>
-        <p><strong>Links</strong><span>${data.linkCount}</span></p>
-        <p><strong>Bilder</strong><span>${data.imageCount}</span></p>
-        <p><strong>Überschriften insgesamt</strong><span>${data.headingCount}</span></p>
-      </div>
-
-      <h3>Erkannte Überschriften</h3>
-      <div class="scroll-panel">
-        ${headings}
-      </div>
-
-      <section class="link-groups">
-        <div class="link-group-card">
-          <div class="section-heading">
-            <h3>Interne Links</h3>
-            <span class="counter-pill">${internalLinks.length}</span>
-          </div>
-          <div class="scroll-panel">
-            ${internalLinksMarkup}
-          </div>
+      <div class="analysis-hero">
+        <div class="analysis-copy">
+          <p class="eyebrow">Analyse abgeschlossen</p>
+          <h2>${summaryTitle}</h2>
+          <p class="analysis-subtitle">${escapeHtml(finalUrl || "-")}</p>
         </div>
 
-        <div class="link-group-card">
-          <div class="section-heading">
-            <h3>Externe Links</h3>
-            <span class="counter-pill counter-pill-secondary">${externalLinks.length}</span>
+        <div class="analysis-badges">
+          <span class="status-pill">Status ${data.statusCode}</span>
+          <span class="counter-pill counter-pill-secondary">${linkedPages.length} Unterseiten</span>
+        </div>
+      </div>
+
+      <section class="result-section">
+        <div class="section-heading">
+          <div>
+            <h3>Basisdaten</h3>
+            <p class="section-description">Die wichtigsten Werte der analysierten Seite auf einen Blick.</p>
           </div>
-          <div class="scroll-panel">
-            ${externalLinksMarkup}
-          </div>
+        </div>
+        <div class="data-grid">
+          <p><strong>Status</strong><span>${data.statusCode}</span></p>
+          <p><strong>URL</strong><span>${escapeHtml(finalUrl || "-")}</span></p>
+          <p><strong>Title</strong><span>${escapeHtml(data.title ?? "-")}</span></p>
+          <p><strong>Meta Description</strong><span>${escapeHtml(data.metaDescription ?? "-")}</span></p>
+          <p><strong>Sprache</strong><span>${escapeHtml(data.language ?? "-")}</span></p>
+          <p><strong>Absätze</strong><span>${data.paragraphCount}</span></p>
+          <p><strong>Links</strong><span>${data.linkCount}</span></p>
+          <p><strong>Bilder</strong><span>${data.imageCount}</span></p>
+          <p><strong>Überschriften insgesamt</strong><span>${data.headingCount}</span></p>
         </div>
       </section>
 
-      <h3>Textauszug</h3>
-      <div class="scroll-panel">
-        <p>${escapeHtml(data.textSample || "-")}</p>
-      </div>
+      <section class="result-section">
+        <div class="section-heading">
+          <div>
+            <h3>Erkannte Überschriften</h3>
+            <p class="section-description">Die ersten markanten Strukturpunkte der Seite.</p>
+          </div>
+        </div>
+        <div class="scroll-panel">
+          ${headings}
+        </div>
+      </section>
+
+      <section class="result-section">
+        <div class="section-heading">
+          <div>
+            <h3>Link-Verteilung</h3>
+            <p class="section-description">Aufgeteilt nach internen und externen Verweisen.</p>
+          </div>
+        </div>
+        <section class="link-groups">
+          <div class="link-group-card">
+            <div class="section-heading">
+              <h3>Interne Links</h3>
+              <span class="counter-pill">${internalLinks.length}</span>
+            </div>
+            <div class="scroll-panel">
+              ${internalLinksMarkup}
+            </div>
+          </div>
+
+          <div class="link-group-card">
+            <div class="section-heading">
+              <h3>Externe Links</h3>
+              <span class="counter-pill counter-pill-secondary">${externalLinks.length}</span>
+            </div>
+            <div class="scroll-panel">
+              ${externalLinksMarkup}
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section class="result-section">
+        <div class="section-heading">
+          <div>
+            <h3>Textauszug</h3>
+            <p class="section-description">Ein kurzer Eindruck vom extrahierten Fließtext.</p>
+          </div>
+        </div>
+        <div class="scroll-panel">
+          <p>${escapeHtml(data.textSample || "-")}</p>
+        </div>
+      </section>
 
       ${recursiveSearchMarkup}
+    </section>
+  `;
+}
+
+function renderEmptyState(): void {
+  resultsElement.innerHTML = `
+    <section class="empty-state">
+      <p class="eyebrow">Bereit</p>
+      <h2>Starte mit einer URL.</h2>
+      <p>
+        Die Analyse zeigt dir Metadaten, Inhaltsstruktur, Link-Aufteilung und
+        eine kompakte Tiefenanalyse in einer lesbaren Ansicht.
+      </p>
+    </section>
+  `;
+}
+
+function renderLoadingState(url: string): void {
+  const hostnameLabel = getHostnameLabel(url) || url;
+
+  resultsElement.innerHTML = `
+    <section class="loading-state">
+      <span class="loading-orb" aria-hidden="true"></span>
+      <div>
+        <p class="eyebrow">Analyse läuft</p>
+        <h2>${escapeHtml(hostnameLabel)}</h2>
+        <p class="muted">Webseite wird geprüft und die Daten werden aufbereitet.</p>
+      </div>
     </section>
   `;
 }
@@ -162,7 +256,7 @@ function renderRecursiveSearch(linkedPages: LinkedPageAnalysis[]): string {
 
   if (linkedPages.length === 0) {
     return `
-      <details class="recursive-details" open>
+      <details class="recursive-details result-section" open>
         <summary class="recursive-summary">
           <div class="recursive-summary-main">
             <span class="recursive-summary-title">Tiefenanalyse (1 Ebene tief)</span>
@@ -178,7 +272,7 @@ function renderRecursiveSearch(linkedPages: LinkedPageAnalysis[]): string {
   }
 
   return `
-    <details class="recursive-details" open>
+    <details class="recursive-details result-section" open>
       <summary class="recursive-summary">
         <div class="recursive-summary-main">
           <span class="recursive-summary-title">Tiefenanalyse (1 Ebene tief)</span>
@@ -206,14 +300,14 @@ function renderRecursiveSearch(linkedPages: LinkedPageAnalysis[]): string {
 }
 
 function renderRecursivePage(linkedPage: LinkedPageAnalysis): string {
-  const title = linkedPage.title ?? linkedPage.finalUrl ?? linkedPage.url;
+  const title = linkedPage.title ?? linkedPage.finalUrl ?? linkedPage.url ?? "Unbekannte Seite";
   const pageUrl = linkedPage.finalUrl ?? linkedPage.url;
-  const { internalLinks, externalLinks } = splitLinksByOrigin(linkedPage.links, pageUrl);
+  const childLinks = Array.isArray(linkedPage.links) ? linkedPage.links : [];
+  const childHeadings = Array.isArray(linkedPage.topHeadings) ? linkedPage.topHeadings : [];
+  const { internalLinks, externalLinks } = splitLinksByOrigin(childLinks, pageUrl);
   const headingList =
-    linkedPage.topHeadings.length > 0
-      ? `<ul class="result-list">${linkedPage.topHeadings
-          .map((heading) => `<li>${escapeHtml(heading)}</li>`)
-          .join("")}</ul>`
+    childHeadings.length > 0
+      ? `<ul class="result-list">${childHeadings.map((heading) => `<li>${escapeHtml(heading)}</li>`).join("")}</ul>`
       : '<p class="muted">Keine Hauptüberschriften gefunden.</p>';
 
   if (linkedPage.error) {
@@ -309,14 +403,15 @@ function summarizeLinkedPages(linkedPages: LinkedPageAnalysis[]): {
   return linkedPages.reduce(
     (summary, linkedPage) => {
       const pageUrl = linkedPage.finalUrl ?? linkedPage.url;
-      const { internalLinks, externalLinks } = splitLinksByOrigin(linkedPage.links, pageUrl);
+      const childLinks = Array.isArray(linkedPage.links) ? linkedPage.links : [];
+      const { internalLinks, externalLinks } = splitLinksByOrigin(childLinks, pageUrl);
 
       return {
         successCount: summary.successCount + (linkedPage.error ? 0 : 1),
         errorCount: summary.errorCount + (linkedPage.error ? 1 : 0),
         internalLinkCount: summary.internalLinkCount + internalLinks.length,
         externalLinkCount: summary.externalLinkCount + externalLinks.length,
-        paragraphCount: summary.paragraphCount + linkedPage.paragraphCount,
+        paragraphCount: summary.paragraphCount + (Number(linkedPage.paragraphCount) || 0),
       };
     },
     {
@@ -336,7 +431,14 @@ function splitLinksByOrigin(
   internalLinks: string[];
   externalLinks: string[];
 } {
-  const baseOrigin = new URL(baseUrl).origin;
+  let baseOrigin = "";
+
+  try {
+    baseOrigin = new URL(baseUrl).origin;
+  } catch {
+    return { internalLinks: [], externalLinks: [...links] };
+  }
+
   const internalLinks: string[] = [];
   const externalLinks: string[] = [];
 
@@ -368,19 +470,27 @@ function isValidUrl(url: string): boolean {
 }
 
 function showError(message: string): void {
-  error!.textContent = message;
-  error!.style.display = "block";
-  input!.classList.add("is-invalid");
+  errorElement.textContent = message;
+  errorElement.style.display = "block";
+  inputElement.classList.add("is-invalid");
 }
 
 function clearError(): void {
-  error!.textContent = "";
-  error!.style.display = "none";
-  input!.classList.remove("is-invalid");
+  errorElement.textContent = "";
+  errorElement.style.display = "none";
+  inputElement.classList.remove("is-invalid");
+}
+
+function getHostnameLabel(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
 }
 
 function escapeHtml(value: string): string {
-  return value
+  return String(value)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
