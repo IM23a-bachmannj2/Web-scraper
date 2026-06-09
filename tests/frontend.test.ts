@@ -53,7 +53,7 @@ describe("Frontend Form Test", () => {
         ) as jest.Mock;
 
         jest.resetModules();
-        require("../public/index.js");
+        require("../src/index.ts");
     });
 
     it("should submit form and display results", async () => {

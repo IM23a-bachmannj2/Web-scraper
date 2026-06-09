@@ -9,34 +9,79 @@
   </head>
 
   <body>
-    <header>
-      <div class="brand">
-        <h1>Explain This Website</h1>
-      </div>
-    </header>
+    <div class="page-shell">
+      <header class="site-header">
+        <div class="brand">
+          <p class="eyebrow">Website Intelligence</p>
+          <h1>Explain This Website</h1>
+          <p class="brand-copy">
+            Inspect metadata, structure, links, and a one-level crawl without
+            digging through raw HTML first.
+          </p>
+        </div>
 
-    <main>
-      <section class="card">
-        <form id="w-form">
-          <label class="form-label" for="website">Website URL</label>
-          <input
-            type="text"
-            id="website"
-            name="website-analyser"
-            placeholder="https://example.com"
-          />
+        <div class="header-badge">One-level crawl included</div>
+      </header>
 
-          <p id="error" class="error" aria-live="polite"></p>
+      <main class="page-main">
+        <section class="intro-panel">
+          <aside class="intro-copy">
+            <div>
+              <p class="eyebrow">Quick Breakdown</p>
+              <h2>Readable page analysis for scraping and structure checks.</h2>
+              <p>
+                Paste a public URL and get a cleaner overview of what is on the
+                page before you go deeper.
+              </p>
+            </div>
 
-          <button type="submit">Submit</button>
-        </form>
-        <div id="results" class="results" aria-live="polite"></div>
-      </section>
-    </main>
+            <div class="feature-list">
+              <article class="feature-card">
+                <strong>Metadata first</strong>
+                <span>Title, description, language, status, and content density.</span>
+              </article>
+              <article class="feature-card">
+                <strong>Link clarity</strong>
+                <span>Internal and external links are split into readable groups.</span>
+              </article>
+              <article class="feature-card">
+                <strong>Deeper context</strong>
+                <span>Includes a one-level crawl to expose follow-up pages quickly.</span>
+              </article>
+            </div>
+          </aside>
 
-    <footer>
-      <span>A very cool website</span>
-    </footer>
+          <section class="card workspace-card">
+            <div class="form-intro">
+              <p class="eyebrow">URL Input</p>
+              <h2>Analyze a website</h2>
+              <p>
+                Start with any http or https URL to generate a structured
+                snapshot.
+              </p>
+            </div>
+
+            <form id="w-form">
+              <label class="form-label" for="website">Website URL</label>
+              <input
+                type="text"
+                id="website"
+                name="website-analyser"
+                placeholder="https://example.com"
+              />
+
+              <p id="error" class="error" aria-live="polite"></p>
+
+              <button class="submit-button" type="submit">Analyze Website</button>
+            </form>
+            <div id="results" class="results" aria-live="polite"></div>
+          </section>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <span>Built for faster scraping reviews and calmer first-pass debugging.</span>
+      </footer>
+    </div>
   </body>
-  <script type="module" src="./index.js"></script>
 </html>
