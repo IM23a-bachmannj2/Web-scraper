@@ -6,10 +6,22 @@ on:
   push:
     paths:
       - 'src/index.ts'
+      - 'public/index.html'
+      - 'public/index.js'
+      - 'public/style.css'
+      - 'tests/frontend.test.ts'
+      - 'package.json'
+      - 'tsconfig.frontend.json'
       - '.github/workflows/frontend_job.yml'
   pull_request:
     paths:
       - 'src/index.ts'
+      - 'public/index.html'
+      - 'public/index.js'
+      - 'public/style.css'
+      - 'tests/frontend.test.ts'
+      - 'package.json'
+      - 'tsconfig.frontend.json'
       - '.github/workflows/frontend_job.yml'
 
 jobs:

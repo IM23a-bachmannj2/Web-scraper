@@ -19,7 +19,9 @@
     "typescript-eslint": "^8.57.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "tsc -p tsconfig.json",
+    "build:frontend": "tsc -p tsconfig.frontend.json",
     "start": "node dist/backend.js",
     "format": "prettier --write .",
     "format-check": "prettier --check .",

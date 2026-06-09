@@ -30,5 +30,8 @@ jobs:
       - name: Run Linter check
         run: pnpm run lint-check
 
+      - name: Build frontend bundle
+        run: pnpm run build:frontend
+
       - name: Run tests
         run: pnpm exec jest tests/frontend.test.ts
